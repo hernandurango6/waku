@@ -320,12 +320,16 @@ mod tests {
         .unwrap();
         assert_eq!(first.branch, "waku/build-a-project-selector");
         assert_eq!(
-            fs::read_to_string(first.path.join("README.md")).unwrap(),
+            fs::read_to_string(first.path.join("README.md"))
+                .unwrap()
+                .replace("\r\n", "\n"),
             "main\n"
         );
         fs::write(first.path.join("README.md"), "worktree\n").unwrap();
         assert_eq!(
-            fs::read_to_string(project.join("README.md")).unwrap(),
+            fs::read_to_string(project.join("README.md"))
+                .unwrap()
+                .replace("\r\n", "\n"),
             "feature\n"
         );
 
@@ -350,7 +354,9 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            fs::read_to_string(from_feature.path.join("README.md")).unwrap(),
+            fs::read_to_string(from_feature.path.join("README.md"))
+                .unwrap()
+                .replace("\r\n", "\n"),
             "feature\n"
         );
 

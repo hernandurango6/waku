@@ -294,7 +294,6 @@ fn discover_pi_models(binary: &Path) -> Vec<ProviderModel> {
             "--mode",
             "rpc",
             "--no-session",
-            "--no-extensions",
             "--no-skills",
             "--no-prompt-templates",
             "--no-context-files",

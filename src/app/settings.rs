@@ -1213,6 +1213,32 @@ impl Waku {
     }
 
     fn render_computer_use_settings(&self, cx: &mut Context<Self>) -> AnyElement {
+        if !crate::computer_use::supported() {
+            let theme = Theme::current(cx);
+            return div()
+                .mt(px(15.0))
+                .w_full()
+                .px(px(20.0))
+                .py(px(16.0))
+                .rounded(px(13.0))
+                .bg(theme.raised)
+                .child(
+                    div()
+                        .text_size(px(13.5))
+                        .font_weight(FontWeight::MEDIUM)
+                        .text_color(theme.text)
+                        .child(tr!("computer_use.unavailable")),
+                )
+                .child(
+                    div()
+                        .mt(px(6.0))
+                        .text_size(px(11.5))
+                        .line_height(px(17.0))
+                        .text_color(theme.text_secondary)
+                        .child(tr!("computer_use.requires_macos")),
+                )
+                .into_any_element();
+        }
         let theme = Theme::current(cx);
         let enabled = self.state.computer_use_enabled;
         let permissions = self.computer_permissions.clone();
@@ -1448,6 +1474,9 @@ impl Waku {
     }
 
     fn set_computer_use_enabled(&mut self, enabled: bool, cx: &mut Context<Self>) {
+        if !crate::computer_use::supported() {
+            return;
+        }
         self.state.computer_use_enabled = enabled;
         self.save();
         if enabled {

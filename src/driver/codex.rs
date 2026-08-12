@@ -2411,6 +2411,9 @@ mod tests {
 
     #[test]
     fn computer_use_cleanup_verifies_the_registered_executable() {
+        if cfg!(windows) {
+            return;
+        }
         let current = fs::canonicalize(std::env::current_exe().unwrap()).unwrap();
         assert_eq!(
             computer_use_runtime::process_executable(std::process::id() as i32),

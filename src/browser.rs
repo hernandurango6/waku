@@ -425,6 +425,7 @@ impl BrowserView {
         let address = cx.new(|cx| {
             ComposerInput::new(window, cx)
                 .search_field()
+                .read_only(!cfg!(target_os = "macos"))
                 .select_all_on_focus_click()
                 .placeholder(tr!("input.search_or_enter_address"))
         });
@@ -655,7 +656,11 @@ impl BrowserView {
 
     #[cfg(not(target_os = "macos"))]
     fn build_webview(&mut self, _window: &mut Window, _cx: &mut Context<Self>) {
-        self.host_error = Some(tr!("browser.requires_macos"));
+        self.host_error = Some(if cfg!(target_os = "windows") {
+            tr!("browser.requires_windows")
+        } else {
+            tr!("browser.requires_macos")
+        });
     }
 
     fn page_load_changed(&mut self, event: PageLoad, url: String, cx: &mut Context<Self>) {

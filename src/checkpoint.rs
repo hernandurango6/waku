@@ -963,11 +963,15 @@ mod tests {
         restore_ref(&directory, &turn.git_ref).unwrap();
 
         assert_eq!(
-            fs::read_to_string(directory.join("tracked.txt")).unwrap(),
+            fs::read_to_string(directory.join("tracked.txt"))
+                .unwrap()
+                .replace("\r\n", "\n"),
             "changed\n"
         );
         assert_eq!(
-            fs::read_to_string(directory.join("new.txt")).unwrap(),
+            fs::read_to_string(directory.join("new.txt"))
+                .unwrap()
+                .replace("\r\n", "\n"),
             "new\n"
         );
         assert!(!directory.join("discard.txt").exists());

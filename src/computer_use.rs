@@ -1,6 +1,4 @@
-use std::fs;
 use std::io::Write as _;
-use std::os::unix::fs::DirBuilderExt as _;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::Arc;
@@ -10,9 +8,14 @@ use anyhow::{Context as _, anyhow, bail};
 use base64::Engine as _;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+#[cfg(target_os = "macos")]
 use uuid::Uuid;
 
 const MAX_HELPER_OUTPUT_BYTES: usize = 24 * 1024 * 1024;
+
+pub fn supported() -> bool {
+    cfg!(target_os = "macos")
+}
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -318,77 +321,111 @@ pub fn pi_extension_path() -> anyhow::Result<PathBuf> {
 /// helper its own TCC identity while the signed app bundle remains the source
 /// shipped with Waku.
 fn install_helper_app(source: &Path) -> anyhow::Result<PathBuf> {
-    let application_support =
-        dirs::data_dir().ok_or_else(|| anyhow!("Application Support directory is unavailable"))?;
-    let install_root = application_support.join("Waku").join("Computer Use");
-    fs::DirBuilder::new()
-        .recursive(true)
-        .mode(0o700)
-        .create(&install_root)
-        .with_context(|| format!("could not create {}", install_root.display()))?;
-    let bundle_name = source
-        .file_name()
-        .ok_or_else(|| anyhow!("Computer Use helper bundle name is invalid"))?;
-    let destination = install_root.join(bundle_name);
-    if helper_install_matches(source, &destination)? {
-        return Ok(destination);
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = source;
+        bail!("Computer Use is not supported on this platform");
     }
 
-    let staging = install_root.join(format!(".install-{}.app", Uuid::new_v4().simple()));
-    copy_directory(source, &staging)?;
-    let previous = install_root.join(format!(".previous-{}.app", Uuid::new_v4().simple()));
-    let had_previous = destination.exists();
-    if had_previous {
-        fs::rename(&destination, &previous)
-            .with_context(|| format!("could not replace {}", destination.display()))?;
-    }
-    if let Err(error) = fs::rename(&staging, &destination) {
-        if had_previous {
-            let _ = fs::rename(&previous, &destination);
+    #[cfg(target_os = "macos")]
+    {
+        use std::fs;
+        use uuid::Uuid;
+
+        let application_support = dirs::data_dir()
+            .ok_or_else(|| anyhow!("Application Support directory is unavailable"))?;
+        let install_root = application_support.join("Waku").join("Computer Use");
+        fs::DirBuilder::new()
+            .recursive(true)
+            .mode(0o700)
+            .create(&install_root)
+            .with_context(|| format!("could not create {}", install_root.display()))?;
+        let bundle_name = source
+            .file_name()
+            .ok_or_else(|| anyhow!("Computer Use helper bundle name is invalid"))?;
+        let destination = install_root.join(bundle_name);
+        if helper_install_matches(source, &destination)? {
+            return Ok(destination);
         }
-        let _ = fs::remove_dir_all(&staging);
-        return Err(error).context("could not install Computer Use helper");
+
+        let staging = install_root.join(format!(".install-{}.app", Uuid::new_v4().simple()));
+        copy_directory(source, &staging)?;
+        let previous = install_root.join(format!(".previous-{}.app", Uuid::new_v4().simple()));
+        let had_previous = destination.exists();
+        if had_previous {
+            fs::rename(&destination, &previous)
+                .with_context(|| format!("could not replace {}", destination.display()))?;
+        }
+        if let Err(error) = fs::rename(&staging, &destination) {
+            if had_previous {
+                let _ = fs::rename(&previous, &destination);
+            }
+            let _ = fs::remove_dir_all(&staging);
+            return Err(error).context("could not install Computer Use helper");
+        }
+        if had_previous {
+            let _ = fs::remove_dir_all(previous);
+        }
+        Ok(destination)
     }
-    if had_previous {
-        let _ = fs::remove_dir_all(previous);
-    }
-    Ok(destination)
 }
 
 fn helper_install_matches(source: &Path, destination: &Path) -> anyhow::Result<bool> {
-    if !destination.is_dir() {
-        return Ok(false);
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (source, destination);
+        Ok(false)
     }
-    let fingerprint = Path::new("Contents/Resources/.waku-helper-fingerprint");
-    let source_fingerprint = fs::read(source.join(fingerprint))?;
-    let Ok(installed_fingerprint) = fs::read(destination.join(fingerprint)) else {
-        return Ok(false);
-    };
-    Ok(source_fingerprint == installed_fingerprint)
+
+    #[cfg(target_os = "macos")]
+    {
+        use std::fs;
+
+        if !destination.is_dir() {
+            return Ok(false);
+        }
+        let fingerprint = Path::new("Contents/Resources/.waku-helper-fingerprint");
+        let source_fingerprint = fs::read(source.join(fingerprint))?;
+        let Ok(installed_fingerprint) = fs::read(destination.join(fingerprint)) else {
+            return Ok(false);
+        };
+        Ok(source_fingerprint == installed_fingerprint)
+    }
 }
 
 fn copy_directory(source: &Path, destination: &Path) -> anyhow::Result<()> {
-    let metadata = fs::symlink_metadata(source)?;
-    fs::create_dir(destination)?;
-    fs::set_permissions(destination, metadata.permissions())?;
-    for entry in fs::read_dir(source)? {
-        let entry = entry?;
-        let source_path = entry.path();
-        let destination_path = destination.join(entry.file_name());
-        let file_type = entry.file_type()?;
-        if file_type.is_dir() {
-            copy_directory(&source_path, &destination_path)?;
-        } else if file_type.is_symlink() {
-            std::os::unix::fs::symlink(fs::read_link(&source_path)?, &destination_path)?;
-        } else {
-            fs::copy(&source_path, &destination_path)?;
-            fs::set_permissions(
-                &destination_path,
-                fs::symlink_metadata(&source_path)?.permissions(),
-            )?;
-        }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (source, destination);
+        bail!("Computer Use is not supported on this platform");
     }
-    Ok(())
+
+    #[cfg(target_os = "macos")]
+    {
+        use std::fs;
+
+        let metadata = fs::symlink_metadata(source)?;
+        fs::create_dir(destination)?;
+        fs::set_permissions(destination, metadata.permissions())?;
+        for entry in fs::read_dir(source)? {
+            let entry = entry?;
+            let source_path = entry.path();
+            let destination_path = destination.join(entry.file_name());
+            let file_type = entry.file_type()?;
+            if file_type.is_dir() {
+                copy_directory(&source_path, &destination_path)?;
+            } else if file_type.is_symlink() {
+                std::os::unix::fs::symlink(fs::read_link(&source_path)?, &destination_path)?;
+            } else {
+                fs::copy(&source_path, &destination_path)?;
+                fs::set_permissions(
+                    &destination_path,
+                    fs::symlink_metadata(&source_path)?.permissions(),
+                )?;
+            }
+        }
+        Ok(())
+    }
 }
 
 pub fn skill_root_path() -> anyhow::Result<PathBuf> {

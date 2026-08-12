@@ -4,7 +4,6 @@
 
 use std::fs;
 
-use std::os::unix::fs::{PermissionsExt as _, symlink};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -54,6 +53,10 @@ pub(super) struct HeadlessComputerUseRuntime {
 
 impl HeadlessComputerUseRuntime {
     pub(super) fn start(provider: ProviderKind, events: DriverEventSender) -> anyhow::Result<Self> {
+        anyhow::ensure!(
+            crate::computer_use::supported(),
+            "Computer Use is not supported on this platform"
+        );
         let runtime = computer_use_runtime::ComputerUseRuntime::start(events)?;
         let config = match provider {
             ProviderKind::OpenCode => {
@@ -182,12 +185,16 @@ fn build_grok_computer_use_config(
             grok_home.display()
         )
     })?;
-    fs::set_permissions(&grok_home, fs::Permissions::from_mode(0o700)).with_context(|| {
-        format!(
-            "could not secure isolated Grok home {}",
-            grok_home.display()
-        )
-    })?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        fs::set_permissions(&grok_home, fs::Permissions::from_mode(0o700)).with_context(|| {
+            format!(
+                "could not secure isolated Grok home {}",
+                grok_home.display()
+            )
+        })?;
+    }
     if source_home.is_dir() {
         for entry in fs::read_dir(&source_home)
             .with_context(|| format!("could not read Grok home {}", source_home.display()))?
@@ -200,12 +207,38 @@ fn build_grok_computer_use_config(
             ) {
                 continue;
             }
-            symlink(entry.path(), grok_home.join(name)).with_context(|| {
-                format!(
-                    "could not mirror Grok runtime resource {}",
-                    entry.path().display()
-                )
-            })?;
+            let destination = grok_home.join(name);
+            #[cfg(unix)]
+            {
+                std::os::unix::fs::symlink(entry.path(), &destination).with_context(|| {
+                    format!(
+                        "could not mirror Grok runtime resource {}",
+                        entry.path().display()
+                    )
+                })?;
+            }
+            #[cfg(windows)]
+            {
+                if entry.file_type()?.is_dir() {
+                    std::os::windows::fs::symlink_dir(entry.path(), &destination)
+                        .or_else(|_| fs::create_dir_all(&destination))
+                        .with_context(|| {
+                            format!(
+                                "could not mirror Grok runtime resource {}",
+                                entry.path().display()
+                            )
+                        })?;
+                } else {
+                    std::os::windows::fs::symlink_file(entry.path(), &destination)
+                        .or_else(|_| fs::copy(entry.path(), &destination).map(|_| ()))
+                        .with_context(|| {
+                            format!(
+                                "could not mirror Grok runtime resource {}",
+                                entry.path().display()
+                            )
+                        })?;
+                }
+            }
         }
     }
     let existing = match fs::read_to_string(source_home.join("config.toml")) {

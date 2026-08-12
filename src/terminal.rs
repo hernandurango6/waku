@@ -191,9 +191,18 @@ impl TerminalSession {
             proxy.clone(),
         )));
 
-        let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".into());
+        let shell = if cfg!(windows) {
+            "pwsh.exe".into()
+        } else {
+            std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".into())
+        };
+        let shell_args = if cfg!(windows) {
+            vec!["-NoLogo".into(), "-NoProfile".into()]
+        } else {
+            vec!["-l".into()]
+        };
         let mut options = tty::Options {
-            shell: Some(Shell::new(shell, vec!["-l".into()])),
+            shell: Some(Shell::new(shell, shell_args)),
             working_directory: Some(working_directory.to_path_buf()),
             drain_on_exit: false,
             ..Default::default()

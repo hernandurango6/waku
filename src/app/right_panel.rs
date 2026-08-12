@@ -96,7 +96,12 @@ fn percent_decode_file_path(path: &str) -> String {
 
 fn markdown_file_link_path(target: &str) -> Option<PathBuf> {
     let target = strip_file_location(target.trim());
-    let path = if target.starts_with('/') {
+    let path = if target.starts_with('/')
+        || (target.len() >= 3
+            && target.as_bytes()[0].is_ascii_alphabetic()
+            && target.as_bytes()[1] == b':'
+            && matches!(target.as_bytes()[2], b'/' | b'\\'))
+    {
         target
     } else if let Some(path) = target.strip_prefix("file://") {
         if path.starts_with('/') {
@@ -139,7 +144,7 @@ fn workspace_relative_file_path(workspace: &Path, target: &Path) -> Option<Strin
         if relative.as_os_str().is_empty() {
             return None;
         }
-        Some(relative.to_string_lossy().into_owned())
+        Some(relative.to_string_lossy().replace('\\', "/"))
     }
 
     let workspace = normalized_path(workspace);
@@ -898,6 +903,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg(not(windows))]
     fn transcript_file_links_route_by_the_active_workspace() {
         let workspace = Path::new("/Users/egoist/dev/waku");
 
@@ -932,6 +938,20 @@ mod tests {
         assert_eq!(
             transcript_link_route("https://example.com/file.rs:12", Some(workspace)),
             TranscriptLinkRoute::External
+        );
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn transcript_file_links_route_windows_paths_by_the_active_workspace() {
+        let workspace = Path::new(r"C:\Users\egoist\dev\waku");
+
+        assert_eq!(
+            transcript_link_route(
+                r"C:\Users\egoist\dev\waku\src\app\right_panel.rs:1596",
+                Some(workspace),
+            ),
+            TranscriptLinkRoute::ProjectFile("src/app/right_panel.rs".into())
         );
     }
 
@@ -1193,13 +1213,13 @@ mod tests {
         assert_eq!(
             visible
                 .iter()
-                .map(|entry| (entry.relative_path.as_str(), entry.depth))
+                .map(|entry| (entry.relative_path.replace('\\', "/"), entry.depth))
                 .collect::<Vec<_>>(),
             vec![
-                ("src", 0),
-                ("src/nested", 1),
-                ("src/main.rs", 1),
-                ("README.md", 0)
+                ("src".to_owned(), 0),
+                ("src/nested".to_owned(), 1),
+                ("src/main.rs".to_owned(), 1),
+                ("README.md".to_owned(), 0),
             ]
         );
 

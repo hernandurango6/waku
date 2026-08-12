@@ -32,8 +32,9 @@ structured protocol and session continuity.
 
 ## Development
 
-Development currently requires macOS, [Rust 1.96 or newer](https://www.rust-lang.org/tools/install),
-and [Bun](https://bun.sh/).
+Development supports macOS and Windows x64, with [Rust 1.96 or newer](https://www.rust-lang.org/tools/install)
+and [Bun](https://bun.sh/). The Windows build currently prioritizes the Pi
+provider; Browser and Computer Use are not available there yet.
 
 ```sh
 bun install

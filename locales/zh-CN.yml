@@ -105,6 +105,8 @@ providers.checked_minutes_ago: "%{count} 分钟前检查过"
 providers.checked_hours_ago: "%{count} 小时前检查过"
 computer_use.allow_apps: 允许 Waku 操作其他应用
 computer_use.availability: Codex、OpenCode、Grok 和 Pi 支持电脑操作功能
+computer_use.unavailable: 电脑操作功能不可用
+computer_use.requires_macos: 电脑操作功能目前尚未支持 Windows
 computer_use.macos_access: macOS 权限
 computer_use.helper_access: 请向 Waku 的独立控制助手 %{helper} 授予权限
 computer_use.screen_recording: 屏幕录制
@@ -585,6 +587,7 @@ browser.open_external: 在默认浏览器中打开
 browser.browse_web: 浏览网页
 browser.start_hint: 在上方输入网址或搜索内容 — 按 ⌘L 聚焦地址栏
 browser.unavailable: 浏览器不可用
+browser.requires_windows: 浏览器面板目前尚未支持 Windows
 browser.requires_macos: 浏览器面板仅支持 macOS
 find.bad_pattern: 表达式无效
 find.no_results: 无结果

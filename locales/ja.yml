@@ -114,6 +114,8 @@ providers.checked_hours_ago: "%{count} 時間前に確認済み"
 
 computer_use.allow_apps: Waku にアプリの操作を許可
 computer_use.availability: コンピュータ操作は Codex、OpenCode、Grok、Pi で利用できます
+computer_use.unavailable: コンピュータ操作は利用できません
+computer_use.requires_macos: コンピュータ操作は現在 Windows では利用できません
 computer_use.macos_access: macOS のアクセス権
 computer_use.helper_access: Waku の分離された操作ヘルパー %{helper} にアクセスを許可してください
 computer_use.screen_recording: 画面収録
@@ -628,6 +630,7 @@ browser.open_external: デフォルトのブラウザで開く
 browser.browse_web: ウェブを閲覧
 browser.start_hint: 上に URL または検索語句を入力してください — ⌘L でアドレスバーにフォーカス
 browser.unavailable: ブラウザを利用できません
+browser.requires_windows: ブラウザパネルは現在 Windows では利用できません
 browser.requires_macos: ブラウザパネルは macOS でのみ利用できます
 
 find.bad_pattern: 無効なパターン

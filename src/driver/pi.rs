@@ -100,7 +100,7 @@ impl PiDriver {
             parse_model_slug(model)?;
         }
 
-        let computer_use = computer_use_enabled
+        let computer_use = (computer_use_enabled && crate::computer_use::supported())
             .then(|| computer_use_runtime::ComputerUseRuntime::start(events.clone()))
             .transpose()?;
         let pi_extension = computer_use

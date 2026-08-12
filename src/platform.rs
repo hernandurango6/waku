@@ -12,7 +12,12 @@ pub fn show_about_panel() {
 }
 
 #[cfg(not(target_os = "macos"))]
-pub fn show_about_panel() {}
+pub fn show_about_panel() {
+    #[cfg(target_os = "windows")]
+    {
+        let _ = std::process::Command::new("winver").spawn();
+    }
+}
 
 /// Register embedded font data with CoreText at process scope. GPUI's
 /// `add_fonts` only feeds its private font-kit source, which CoreText cascade
@@ -172,7 +177,14 @@ pub fn reveal_in_finder(path: &std::path::Path) {
 }
 
 #[cfg(not(target_os = "macos"))]
-pub fn reveal_in_finder(_: &std::path::Path) {}
+pub fn reveal_in_finder(path: &std::path::Path) {
+    #[cfg(target_os = "windows")]
+    {
+        let _ = std::process::Command::new("explorer.exe")
+            .arg(format!("/select,{}", path.display()))
+            .spawn();
+    }
+}
 
 /// Open `path` with its default application — a document in its editor.
 #[cfg(target_os = "macos")]
@@ -185,7 +197,12 @@ pub fn open_with_default_app(path: &std::path::Path) {
 }
 
 #[cfg(not(target_os = "macos"))]
-pub fn open_with_default_app(_: &std::path::Path) {}
+pub fn open_with_default_app(path: &std::path::Path) {
+    #[cfg(target_os = "windows")]
+    {
+        let _ = std::process::Command::new("explorer.exe").arg(path).spawn();
+    }
+}
 
 /// Move `path` to the Trash, recoverably. Errors surface to the caller so the
 /// UI can say why nothing moved.
@@ -201,7 +218,40 @@ pub fn trash_item(path: &std::path::Path) -> Result<(), String> {
 
 #[cfg(not(target_os = "macos"))]
 pub fn trash_item(path: &std::path::Path) -> Result<(), String> {
-    std::fs::remove_dir_all(path).map_err(|error| error.to_string())
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::ffi::OsStrExt as _;
+        use windows_sys::Win32::UI::Shell::{
+            FO_DELETE, FOF_ALLOWUNDO, FOF_NOCONFIRMATION, SHFILEOPSTRUCTW, SHFileOperationW,
+        };
+
+        let mut source = path.as_os_str().encode_wide().collect::<Vec<_>>();
+        source.push(0);
+        source.push(0);
+        let mut operation = SHFILEOPSTRUCTW {
+            hwnd: std::ptr::null_mut(),
+            wFunc: FO_DELETE,
+            pFrom: source.as_ptr(),
+            pTo: std::ptr::null(),
+            fFlags: (FOF_ALLOWUNDO | FOF_NOCONFIRMATION) as u16,
+            fAnyOperationsAborted: 0,
+            hNameMappings: std::ptr::null_mut(),
+            lpszProgressTitle: std::ptr::null(),
+        };
+        let result = unsafe { SHFileOperationW(&mut operation) };
+        if result == 0 && operation.fAnyOperationsAborted == 0 {
+            Ok(())
+        } else if operation.fAnyOperationsAborted != 0 {
+            Err("Windows recycle-bin operation was cancelled".into())
+        } else {
+            Err(format!("Windows recycle-bin operation failed: {result}"))
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = path;
+        Err("Moving items to the trash is not supported on this platform".into())
+    }
 }
 
 /// Keep Waku's single main window alive when the user closes it. This preserves

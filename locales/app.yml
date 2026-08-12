@@ -219,6 +219,10 @@ computer_use.allow_apps:
   en: Let Waku use apps
 computer_use.availability:
   en: Computer Use is available with Codex, OpenCode, Grok, and Pi
+computer_use.unavailable:
+  en: Computer Use unavailable
+computer_use.requires_macos:
+  en: Computer Use is not available on Windows yet
 computer_use.macos_access:
   en: macOS access
 computer_use.helper_access:
@@ -1213,6 +1217,8 @@ browser.unavailable:
   en: Browser unavailable
 browser.requires_macos:
   en: The browser surface requires macOS
+browser.requires_windows:
+  en: The browser surface is not available on Windows yet
 
 find.bad_pattern:
   en: Bad pattern

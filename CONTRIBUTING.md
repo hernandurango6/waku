@@ -7,7 +7,7 @@ well-scoped features are welcome.
 
 The debug app currently requires:
 
-- macOS
+- macOS or Windows x64
 - Rust 1.96 or newer
 - Bun
 - A supported agent CLI when testing a provider integration
@@ -19,6 +19,15 @@ root:
 bun install
 bun run dev
 ```
+
+On Windows, build the application bundle or installer with:
+
+```powershell
+.\scripts\bundle-windows.ps1
+```
+
+The Windows build currently prioritizes Pi. Browser and Computer Use remain
+disabled until their native Windows backends are implemented.
 
 The watcher builds and signs `target/debug/Waku Debug.app`, launches it, and
 rebuilds and relaunches it after source changes. Keep that watcher running while

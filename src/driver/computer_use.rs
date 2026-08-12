@@ -1,8 +1,5 @@
 use std::collections::HashMap;
-use std::ffi::OsString;
 use std::fs;
-use std::os::unix::ffi::OsStringExt as _;
-use std::os::unix::fs::PermissionsExt as _;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -31,6 +28,10 @@ pub(super) struct ComputerUseRuntime {
 
 impl ComputerUseRuntime {
     pub(super) fn start(events: DriverEventSender) -> anyhow::Result<Self> {
+        anyhow::ensure!(
+            computer_use::supported(),
+            "Computer Use is not supported on this platform"
+        );
         let server_path = computer_use::mcp_server_command()?;
         let repl_path = computer_use::js_repl_server_path()?;
         let skill_path = computer_use::skill_root_path()?
@@ -134,25 +135,41 @@ pub(super) fn create_process_directory() -> anyhow::Result<PathBuf> {
             directory.display()
         )
     })?;
-    fs::set_permissions(&directory, fs::Permissions::from_mode(0o700)).with_context(|| {
-        format!(
-            "could not secure Computer Use process directory {}",
-            directory.display()
-        )
-    })?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        fs::set_permissions(&directory, fs::Permissions::from_mode(0o700)).with_context(|| {
+            format!(
+                "could not secure Computer Use process directory {}",
+                directory.display()
+            )
+        })?;
+    }
     Ok(directory)
 }
 
 pub(super) fn stop_registered_processes(directory: &Path, helper_executable: &Path) {
-    let expected_executable =
-        fs::canonicalize(helper_executable).unwrap_or_else(|_| helper_executable.to_path_buf());
-    for (pid, registration) in registered_processes(directory) {
-        if process_executable(pid).as_deref() == Some(expected_executable.as_path()) {
-            unsafe {
-                libc::kill(pid, libc::SIGTERM);
-            }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = helper_executable;
+        for (_, registration) in registered_processes(directory) {
+            let _ = fs::remove_file(registration);
         }
-        let _ = fs::remove_file(registration);
+        return;
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        let expected_executable =
+            fs::canonicalize(helper_executable).unwrap_or_else(|_| helper_executable.to_path_buf());
+        for (pid, registration) in registered_processes(directory) {
+            if process_executable(pid).as_deref() == Some(expected_executable.as_path()) {
+                unsafe {
+                    libc::kill(pid, libc::SIGTERM);
+                }
+            }
+            let _ = fs::remove_file(registration);
+        }
     }
 }
 
@@ -173,17 +190,29 @@ pub(super) fn registered_processes(directory: &Path) -> Vec<(i32, PathBuf)> {
 }
 
 pub(super) fn process_executable(pid: i32) -> Option<PathBuf> {
-    let mut buffer = vec![0_u8; libc::PROC_PIDPATHINFO_MAXSIZE as usize];
-    let length = unsafe {
-        libc::proc_pidpath(
-            pid,
-            buffer.as_mut_ptr().cast(),
-            libc::PROC_PIDPATHINFO_MAXSIZE as u32,
-        )
-    };
-    if length <= 0 {
-        return None;
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = pid;
+        None
     }
-    buffer.truncate(length as usize);
-    Some(PathBuf::from(OsString::from_vec(buffer)))
+
+    #[cfg(target_os = "macos")]
+    {
+        use std::ffi::OsString;
+        use std::os::unix::ffi::OsStringExt as _;
+
+        let mut buffer = vec![0_u8; libc::PROC_PIDPATHINFO_MAXSIZE as usize];
+        let length = unsafe {
+            libc::proc_pidpath(
+                pid,
+                buffer.as_mut_ptr().cast(),
+                libc::PROC_PIDPATHINFO_MAXSIZE as u32,
+            )
+        };
+        if length <= 0 {
+            return None;
+        }
+        buffer.truncate(length as usize);
+        Some(PathBuf::from(OsString::from_vec(buffer)))
+    }
 }

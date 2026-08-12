@@ -8,6 +8,22 @@ use std::process::Command;
 /// system PATH, which is not enough for script-based CLIs whose shebang uses
 /// `/usr/bin/env` (for example, an npm-installed Codex launcher needs `node`).
 pub fn command(program: impl AsRef<OsStr>) -> Command {
+    let program = program.as_ref();
+    #[cfg(windows)]
+    let mut command = if matches!(
+        Path::new(program)
+            .extension()
+            .and_then(|extension| extension.to_str()),
+        Some("cmd" | "bat")
+    ) {
+        let mut command = Command::new("cmd.exe");
+        command.args(["/d", "/s", "/c"]);
+        command.arg(program);
+        command
+    } else {
+        Command::new(program)
+    };
+    #[cfg(not(windows))]
     let mut command = Command::new(program);
     if let Ok(path) = std::env::join_paths(executable_search_paths()) {
         command.env("PATH", path);
@@ -23,7 +39,29 @@ pub fn find_executable(name: &str) -> Option<PathBuf> {
     executable_search_paths()
         .into_iter()
         .map(|directory| directory.join(name))
+        .flat_map(windows_executable_candidates)
         .find(|candidate| candidate.is_file())
+}
+
+fn windows_executable_candidates(path: PathBuf) -> impl Iterator<Item = PathBuf> {
+    #[cfg(windows)]
+    {
+        let has_extension = path.extension().is_some();
+        if has_extension {
+            vec![path].into_iter()
+        } else {
+            vec![
+                path.with_extension("exe"),
+                path.with_extension("cmd"),
+                path.with_extension("bat"),
+            ]
+            .into_iter()
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        std::iter::once(path)
+    }
 }
 
 /// Resolve a user-supplied binary override: `~` expands to the home
@@ -65,6 +103,7 @@ fn search_paths_from(path: Option<&OsStr>, home: Option<&Path>) -> Vec<PathBuf> 
             home.join(".volta/bin"),
         ]);
     }
+    #[cfg(unix)]
     directories.extend([
         PathBuf::from("/opt/homebrew/bin"),
         PathBuf::from("/usr/local/bin"),
@@ -85,6 +124,9 @@ mod tests {
 
     #[test]
     fn launch_services_path_is_extended_for_script_based_clis() {
+        if cfg!(windows) {
+            return;
+        }
         let home = Path::new("/Users/example");
         let paths = search_paths_from(Some(OsStr::new("/usr/bin:/bin")), Some(home));
 
@@ -99,6 +141,25 @@ mod tests {
                 .filter(|path| *path == Path::new("/bin"))
                 .count(),
             1
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_command_wraps_cmd_shims_through_cmd_exe() {
+        let command = command(r"C:\Users\example\AppData\Roaming\npm\pi.cmd");
+        assert_eq!(command.get_program(), "cmd.exe");
+        assert_eq!(
+            command
+                .get_args()
+                .map(|argument| argument.to_string_lossy().into_owned())
+                .collect::<Vec<_>>(),
+            vec![
+                "/d",
+                "/s",
+                "/c",
+                r"C:\Users\example\AppData\Roaming\npm\pi.cmd"
+            ]
         );
     }
 }

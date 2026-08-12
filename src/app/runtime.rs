@@ -1980,7 +1980,8 @@ impl Waku {
                 model,
                 reasoning_effort,
                 service_tier,
-                computer_use_enabled: self.state.computer_use_enabled,
+                computer_use_enabled: self.state.computer_use_enabled
+                    && crate::computer_use::supported(),
                 provider_cursor: session.provider_cursor.clone(),
             },
             event_wake: self.event_wake_tx.clone(),

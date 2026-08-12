@@ -1231,9 +1231,29 @@ mod tests {
         std::fs::create_dir_all(root.join("real/commands")).unwrap();
         std::fs::write(root.join("real/commands/deploy.md"), "Ship it.").unwrap();
         std::fs::create_dir_all(root.join("skills")).unwrap();
-        std::os::unix::fs::symlink(root.join("real/my-skill"), root.join("skills/my-skill"))
+        #[cfg(unix)]
+        {
+            std::os::unix::fs::symlink(root.join("real/my-skill"), root.join("skills/my-skill"))
+                .unwrap();
+            std::os::unix::fs::symlink(root.join("real/commands"), root.join("commands")).unwrap();
+        }
+        #[cfg(windows)]
+        std::fs::create_dir_all(root.join("skills/my-skill")).unwrap();
+        #[cfg(windows)]
+        std::fs::copy(
+            root.join("real/my-skill/SKILL.md"),
+            root.join("skills/my-skill/SKILL.md"),
+        )
+        .unwrap();
+        #[cfg(windows)]
+        {
+            std::fs::create_dir_all(root.join("commands")).unwrap();
+            std::fs::copy(
+                root.join("real/commands/deploy.md"),
+                root.join("commands/deploy.md"),
+            )
             .unwrap();
-        std::os::unix::fs::symlink(root.join("real/commands"), root.join("commands")).unwrap();
+        }
 
         let mut commands = Vec::new();
         scan_skill_files(&root.join("skills"), &mut commands);

@@ -723,16 +723,17 @@ mod tests {
             );
         }
         for expected in [
-            "/tmp/waku/.agents/skills",
-            "/tmp/waku/.claude/skills",
-            "/tmp/waku/.codex/skills",
-            "/tmp/waku/.opencode/skills",
-            "/tmp/waku/.cursor/skills",
-            "/tmp/waku/.pi/skills",
+            PathBuf::from("/tmp/waku/.agents/skills"),
+            PathBuf::from("/tmp/waku/.claude/skills"),
+            PathBuf::from("/tmp/waku/.codex/skills"),
+            PathBuf::from("/tmp/waku/.opencode/skills"),
+            PathBuf::from("/tmp/waku/.cursor/skills"),
+            PathBuf::from("/tmp/waku/.pi/skills"),
         ] {
             assert!(
-                roots.iter().any(|root| root == expected),
-                "project root missing: {expected}"
+                roots.iter().any(|root| PathBuf::from(root) == expected),
+                "project root missing: {}",
+                expected.display()
             );
         }
         // User scope leads the scan, so grouped entries prefer user copies.

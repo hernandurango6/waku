@@ -158,6 +158,49 @@ fn main() {
             });
             cx.on_action(|_: &About, _| crate::platform::show_about_panel());
 
+            #[cfg(target_os = "windows")]
+            cx.bind_keys([
+                KeyBinding::new("ctrl-q", Quit, None),
+                KeyBinding::new("ctrl-w", CloseWindow, None),
+                KeyBinding::new("ctrl-n", NewSession, None),
+                KeyBinding::new("ctrl-o", NewProject, None),
+                KeyBinding::new("ctrl-,", OpenSettings, None),
+                KeyBinding::new("ctrl-b", ToggleSidebar, None),
+                KeyBinding::new("ctrl-shift-b", ToggleRightPanel, None),
+                KeyBinding::new("ctrl-k", ToggleCommandPalette, None),
+                KeyBinding::new("ctrl-alt-shift-f", ToggleFpsCounter, None),
+                KeyBinding::new("ctrl-[", NavigateBack, Some("Waku")),
+                KeyBinding::new("ctrl-]", NavigateForward, Some("Waku")),
+                KeyBinding::new("ctrl-l", FocusComposer, None),
+                KeyBinding::new("ctrl-/", ToggleModelPicker, None),
+                KeyBinding::new("ctrl-u", ToggleUsagePanel, None),
+                KeyBinding::new("ctrl-s", SaveFile, None),
+                KeyBinding::new("ctrl-c", CopySelection, Some("Waku")),
+                KeyBinding::new("ctrl-f", OpenFind, Some("Waku")),
+                KeyBinding::new("ctrl-alt-f", OpenFindReplace, Some("Waku")),
+                KeyBinding::new("ctrl-g", FindNext, Some("Waku")),
+                KeyBinding::new("ctrl-shift-g", FindPrevious, Some("Waku")),
+                KeyBinding::new(
+                    "ctrl-alt-c",
+                    ToggleFindCaseSensitive,
+                    Some("FileEditorPane"),
+                ),
+                KeyBinding::new("ctrl-alt-w", ToggleFindWholeWord, Some("FileEditorPane")),
+                KeyBinding::new("ctrl-alt-r", ToggleFindRegex, Some("FileEditorPane")),
+                KeyBinding::new("ctrl-alt-enter", ReplaceAllMatches, Some("FindBar")),
+                KeyBinding::new("ctrl-l", FocusBrowserAddress, Some("Browser")),
+                KeyBinding::new("ctrl-r", BrowserReload, Some("Browser")),
+                KeyBinding::new("ctrl-shift-r", BrowserHardReload, Some("Browser")),
+                KeyBinding::new("ctrl-[", BrowserBack, Some("Browser")),
+                KeyBinding::new("ctrl-]", BrowserForward, Some("Browser")),
+                KeyBinding::new("ctrl-alt-i", BrowserDevtools, Some("Browser")),
+                KeyBinding::new("ctrl-c", WebviewCopy, Some("Browser")),
+                KeyBinding::new("ctrl-x", WebviewCut, Some("Browser")),
+                KeyBinding::new("ctrl-v", WebviewPaste, Some("Browser")),
+                KeyBinding::new("ctrl-a", WebviewSelectAll, Some("Browser")),
+            ]);
+
+            #[cfg(not(target_os = "windows"))]
             cx.bind_keys([
                 KeyBinding::new("cmd-q", Quit, None),
                 KeyBinding::new("cmd-w", CloseWindow, None),
